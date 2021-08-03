@@ -66,9 +66,10 @@ class Callback:
 
 
 class ConsoleLogger(Callback):
-    def __init__(self, print_train_loss=False, as_json=False):
+    def __init__(self, print_train_loss=False, as_json=False, every_x=1):
         self.print_train_loss = print_train_loss
         self.as_json = as_json
+        self.every_x = every_x
 
     def aggregate_print(self, loss: float, logs: Interaction, mode: str, epoch: int):
         dump = dict(loss=loss)
@@ -84,10 +85,11 @@ class ConsoleLogger(Callback):
         print(output_message, flush=True)
 
     def on_validation_end(self, loss: float, logs: Interaction, epoch: int):
-        self.aggregate_print(loss, logs, "test", epoch)
+        if epoch % self.every_x == 0:
+            self.aggregate_print(loss, logs, "test", epoch)
 
     def on_epoch_end(self, loss: float, logs: Interaction, epoch: int):
-        if self.print_train_loss:
+        if self.print_train_loss and epoch % self.every_x == 0:
             self.aggregate_print(loss, logs, "train", epoch)
 
 

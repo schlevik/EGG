@@ -6,6 +6,7 @@
 import torch
 import torch.nn as nn
 
+
 # In EGG, the game designer must implement the core functionality of the Sender and Receiver agents. These are then
 # embedded in wrappers that are used to train them to play Gumbel-Softmax- or Reinforce-optimized games. The core
 # Sender must take the input and produce a hidden representation that is then used by the wrapper to initialize
@@ -53,3 +54,25 @@ class Sender(nn.Module):
     def forward(self, x, _aux_input):
         return self.fc1(x)
         # here, it might make sense to add a non-linearity, such as tanh
+
+
+class FixedLengthSender(nn.Module):
+    def __init__(self, n_hidden, n_features, vocab_size, depth):
+        super(FixedLengthSender, self).__init__()
+        self.sequential = [(nn.Linear(n_features if i == 0 else n_hidden, n_hidden), nn.LeakyReLU(), nn.Dropout(0.2)) for i in range(depth)]
+        self.sequential = nn.Sequential(*(x for y in self.sequential for x in y))
+        self.output = nn.Linear(n_hidden, vocab_size)
+
+    def forward(self, x, _aux_input):
+        return self.output(self.sequential(x))
+
+
+class FixedLengthReceiver(nn.Module):
+    def __init__(self, n_features, n_hidden, depth):
+        super(FixedLengthReceiver, self).__init__()
+        self.sequential = [(nn.Linear(n_hidden, n_hidden), nn.LeakyReLU(), nn.Dropout(0.2)) for _ in range(depth)]
+        self.sequential = nn.Sequential(*(x for y in self.sequential for x in y))
+        self.output = nn.Linear(n_hidden, n_features)
+
+    def forward(self, x, _input, _aux_input):
+        return self.output(self.sequential(x))
