@@ -124,6 +124,7 @@ class WandbLogger(Callback):
         opts: Union[argparse.ArgumentParser, Dict, str, None] = None,
         project: Optional[str] = None,
         run_id: Optional[str] = None,
+        sweep_mode=False,
         **kwargs,
     ):
         # This callback logs to wandb the interaction as they are stored in the leader process.
@@ -132,9 +133,9 @@ class WandbLogger(Callback):
         # subclassing WandbLogger and implementing a custom logic since we do not know a priori
         # what type of data are to be logged.
         self.opts = opts
-
-        wandb.init(project=project, id=run_id, **kwargs)
-        wandb.config.update(opts)
+        if not sweep_mode:
+            wandb.init(project=project, id=run_id, **kwargs)
+            wandb.config.update(opts)
 
     @staticmethod
     def log_to_wandb(metrics: Dict[str, Any], commit: bool = False, **kwargs):

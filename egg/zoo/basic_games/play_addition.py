@@ -4,15 +4,18 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
+from typing import List
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+import wandb
 from torch.utils.data import DataLoader
 
 import egg.core as core
 from egg.core import Callback, Interaction, PrintValidationEvents
 from egg.core.baselines import BuiltInBaseline
+from egg.core.callbacks import WandbLogger
 from egg.zoo.basic_games.architectures import DiscriReceiver, RecoReceiver, Sender, FixedLengthSender, \
     FixedLengthReceiver
 from egg.zoo.basic_games.data_readers import AttValDiscriDataset, AttValRecoDataset
@@ -157,6 +160,24 @@ def get_params(params):
         default=12,
         help="Output dimensionality of the layer that embeds symbols produced at previous step in Sender (default: 10)",
     )
+    parser.add_argument(
+        "--proj_name",
+        type=str,
+        default='egg',
+        help="Name of project",
+    )
+    parser.add_argument(
+        "--run_name",
+        type=str,
+        default=None,
+        help="Name of run",
+    )
+    parser.add_argument(
+        "--sweep_mode",
+        action='store_true',
+        default=False,
+        help="Whether this is a hyper-param sweep",
+    )
 
     args = core.init(parser, params)
     return args
@@ -166,6 +187,10 @@ def main(params):
     opts = get_params(params)
     if opts.validation_batch_size == 0:
         opts.validation_batch_size = opts.batch_size
+
+    wandb.init(config=opts, project=opts.proj_name, name=opts.run_name)
+    opts = wandb.config
+
     print(opts, flush=True)
 
     # the following if statement controls aspects specific to the two game tasks: loss, input data and architecture of the Receiver
@@ -223,7 +248,9 @@ def main(params):
     n_features = opts.n_max * opts.n_summands
     # we define here the core of the receiver for the discriminative game, see the architectures.py file for details
     # this will be embedded in a wrapper below to define the full architecture
-    receiver = RecoReceiver(n_features=n_features, n_hidden=opts.receiver_hidden) if opts.max_len > 1 else FixedLengthReceiver(n_features=n_features, n_hidden=opts.receiver_hidden, depth=opts.depth_receiver)
+    receiver = RecoReceiver(n_features=n_features,
+                            n_hidden=opts.receiver_hidden) if opts.max_len > 1 else FixedLengthReceiver(
+        n_features=n_features, n_hidden=opts.receiver_hidden, depth=opts.depth_receiver)
 
     # we are now outside the block that defined game-type-specific aspects of the games: note that the core Sender architecture
     # (see architectures.py for details) is shared by the two games (it maps an input vector to a hidden layer that will be use to initialize
@@ -308,7 +335,7 @@ def main(params):
                 receiver = RecoReceiver(
                     n_features, n_hidden=opts.receiver_embedding
                 )
-                #sender = Sender(n_features=n_features, n_hidden=opts.sender_embedding)
+                # sender = Sender(n_features=n_features, n_hidden=opts.sender_embedding)
                 receiver = core.TransformerReceiverDeterministic(
                     receiver,
                     vocab_size=opts.vocab_size,
@@ -335,8 +362,7 @@ def main(params):
                 sender_entropy_coeff=opts.sender_entropy_coeff,
                 receiver_entropy_coeff=0,
             )
-        callbacks = []
-
+        callbacks: List[Callback] = []
 
     # we are almost ready to train: we define here an optimizer calling standard pytorch functionality
     optimizer = core.build_optimizer(game.parameters())
@@ -356,6 +382,7 @@ def main(params):
             validation_data=test_loader,
             callbacks=callbacks
                       + [
+                          WandbLogger(opts, opts.proj_name, opts.run_name, sweep_mode=opts.sweep_mode),
                           core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10),
                           PrintValidationEventsForAddition(n_epochs=opts.n_epochs),
                       ],
@@ -367,12 +394,17 @@ def main(params):
             train_data=train_loader,
             validation_data=test_loader,
             callbacks=callbacks
-                      + [core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10)],
+                      + [
+                          WandbLogger(opts, opts.proj_name, opts.run_name),
+                          core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10)
+                      ],
         )
 
     # and finally we train!
     trainer.train(n_epochs=opts.n_epochs)
-    #trainer.eval()
+    # trainer.eval()
+
+
 if __name__ == "__main__":
     import sys
 
