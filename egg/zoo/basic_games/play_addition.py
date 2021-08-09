@@ -21,6 +21,7 @@ import egg.core as core
 from egg.core import Callback, Interaction, PrintValidationEvents
 from egg.core.baselines import BuiltInBaseline
 from egg.core.callbacks import WandbLogger
+from egg.core.util import _set_seed
 from egg.zoo.basic_games.architectures import DiscriReceiver, RecoReceiver, Sender, FixedLengthSender, \
     FixedLengthReceiver
 from egg.zoo.basic_games.data_readers import AttValDiscriDataset, AttValRecoDataset
@@ -452,6 +453,7 @@ def run_hpopt(train_and_eval_single_step: callable, hp_dict, opts):
         print(f"Trying parameters: {parameters}")
         # perform runs_per_trial training/evaluation steps and obtain the mean of the metric
         # we want to optimise (mcc)
+        _set_seed(opts.random_seed)
         acc, loss = train_and_eval_single_step(single_step_args)
         hpopt_results[i]['tried_params'] = parameters
         hpopt_results[i]['result'] = {"acc": acc, "loss": loss}
