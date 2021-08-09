@@ -26,7 +26,7 @@ class PrintValidationEventsForAddition(Callback):
         messages = [m.tolist() for m in logs.message]
         full_outputs = [m.tolist() for m in logs.receiver_output]
         predicted_output = [np.argmax(m) for m in full_outputs]
-        correct = [p == l for p,l in zip(predicted_output, labels)]
+        correct = [p == l for p, l in zip(predicted_output, labels)]
         print(tabulate.tabulate(zip(input_pairs, labels, messages, predicted_output),
                                 headers=['Inputs', 'Labels', 'Messages', "Outputs", "Correct?"]))
 
@@ -39,3 +39,18 @@ class PrintValidationEventsForAddition(Callback):
     # same behaviour if we reached early stopping
     def on_early_stopping(self, _train_loss, _train_logs, epoch, _test_loss, test_logs):
         self.print_events(test_logs)
+
+
+class StoreEvaluationScoreCallback(Callback):
+    def __init__(self, n_epochs):
+        super().__init__()
+        self.n_epochs = n_epochs
+
+        self.val_loss = None
+        self.acc = None
+
+    def on_validation_end(self, _loss, logs: Interaction, epoch: int):
+        # here is where we check that we are at the last epoch
+        if epoch == self.n_epochs:
+            self.val_loss = _loss
+            self.acc = logs.aux['acc'].mean().item()

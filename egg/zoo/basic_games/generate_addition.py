@@ -5,7 +5,6 @@ import wandb
 
 from egg import core
 
-
 def get_params(params):
     parser = argparse.ArgumentParser()
     # arguments controlling the game type

@@ -4,12 +4,17 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
+import json
+import os
+from collections import defaultdict
+from copy import deepcopy
 from typing import List
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
+from ax.service.ax_client import AxClient
 from torch.utils.data import DataLoader
 
 import egg.core as core
@@ -23,7 +28,8 @@ from egg.zoo.basic_games.data_readers import AttValDiscriDataset, AttValRecoData
 # the following section specifies parameters that are specific to our games: we will also inherit the
 # standard EGG parameters from https://github.com/facebookresearch/EGG/blob/master/egg/core/util.py
 from egg.zoo.basic_games.data_readers_addition import SumGameDataset
-from egg.zoo.basic_games.language_analysis_addition import PrintValidationEventsForAddition
+from egg.zoo.basic_games.language_analysis_addition import PrintValidationEventsForAddition, \
+    StoreEvaluationScoreCallback
 
 
 def get_params(params):
@@ -176,15 +182,20 @@ def get_params(params):
         "--sweep_mode",
         action='store_true',
         default=False,
-        help="Whether this is a hyper-param sweep",
+        help="Whether this is a wandb hyper-param sweep",
     )
 
+    parser.add_argument(
+        "--ax_hp",
+        type=str,
+        default=None,
+        help='Ax hyper-parameter file (json).'
+    )
     args = core.init(parser, params)
     return args
 
 
-def main(params):
-    opts = get_params(params)
+def main(opts):
     if opts.validation_batch_size == 0:
         opts.validation_batch_size = opts.batch_size
 
@@ -369,6 +380,7 @@ def main(params):
     # in the following statement, we finally instantiate the trainer
     # object with all the components we defined (the game, the optimizer, the data
     # and the callbacks)
+    res = StoreEvaluationScoreCallback(n_epochs=opts.n_epochs)
     if opts.print_validation_events == True:
         # we add a callback that will print loss and accuracy after each
         # training and validation pass (see ConsoleLogger in callbacks.py in core directory)
@@ -383,7 +395,7 @@ def main(params):
             callbacks=callbacks
                       + [
                           WandbLogger(opts, opts.proj_name, opts.run_name, sweep_mode=opts.sweep_mode),
-                          core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10),
+                          res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10),
                           PrintValidationEventsForAddition(n_epochs=opts.n_epochs),
                       ],
         )
@@ -396,16 +408,67 @@ def main(params):
             callbacks=callbacks
                       + [
                           WandbLogger(opts, opts.proj_name, opts.run_name),
-                          core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10)
+                          res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10),
                       ],
         )
 
     # and finally we train!
     trainer.train(n_epochs=opts.n_epochs)
+    return res.acc, res.val_loss
     # trainer.eval()
+
+
+def run_hpopt(train_and_eval_single_step: callable, hp_dict, opts):
+    # number of trials of different combinations
+    hyperparam_opt_runs = hp_dict['num_runs']
+
+    # number of runs for the same combination (results are averaged)
+    #runs_per_trial = hp_dict['runs_per_trial']
+
+    ax_client = AxClient(verbose_logging=False)
+    ax_client.create_experiment(
+        name=f'nnl',
+        parameters=hp_dict['hyper_params'],
+        objective_name='acc',  # what we maximise
+        minimize=False,
+    )
+
+    # first, eval and save what is the performance before training
+    hpopt_results = defaultdict(dict)
+    # run hyperparam optimisation
+    for i in range(hyperparam_opt_runs):
+
+        parameters, trial_index = ax_client.get_next_trial()
+        single_step_args = deepcopy(opts)
+        # update the params with what ax wants to try next
+        for k, v in parameters.items():
+            setattr(single_step_args, k, v)
+        print(f"Trying parameters: {parameters}")
+        # perform runs_per_trial training/evaluation steps and obtain the mean of the metric
+        # we want to optimise (mcc)
+        acc, loss = train_and_eval_single_step(single_step_args)
+        hpopt_results[i]['tried_params'] = parameters
+        hpopt_results[i]['result'] = {"acc": acc, "loss": loss}
+
+        print(f"Result: {acc} (loss: {loss:.4f})")
+        # update ax
+        ax_client.complete_trial(trial_index=trial_index, raw_data=acc)
+    best_params, metrics = ax_client.get_best_parameters()
+    print(best_params)
+    print(metrics)
+    with open(opts.ax_hp.replace(".json", '-results.json'), 'w+') as f:
+        json.dump({"best_params": best_params, "hpopt_results": hpopt_results, "metrics": metrics}, f, indent=2)
 
 
 if __name__ == "__main__":
     import sys
 
-    main(sys.argv[1:])
+    opts = get_params(sys.argv[1:])
+
+    if opts.ax_hp is not None:
+        os.environ['WANDB_MODE'] = 'disabled'
+        with open(opts.ax_hp) as f:
+            hp_dict = json.load(f)
+            run_hpopt(main, hp_dict, opts)
+    else:
+        main(opts)
