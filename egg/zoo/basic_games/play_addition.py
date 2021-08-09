@@ -191,6 +191,12 @@ def get_params(params):
         default=None,
         help='Ax hyper-parameter file (json).'
     )
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=1,
+        help='Number of dataloader workers.'
+    )
     args = core.init(parser, params)
     return args
 
@@ -243,7 +249,7 @@ def main(opts):
         ),
         batch_size=opts.batch_size,
         shuffle=True,
-        num_workers=1,
+        num_workers=opts.num_workers,
     )
     test_loader = DataLoader(
         SumGameDataset(
@@ -252,7 +258,7 @@ def main(opts):
         ),
         batch_size=opts.validation_batch_size,
         shuffle=False,
-        num_workers=1,
+        num_workers=opts.num_workers,
     )
     # the number of features for the Receiver (input) and the Sender (output) is given by n_attributes*n_values because
     # they are fed/produce 1-hot representations of the input vectors
