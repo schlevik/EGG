@@ -402,7 +402,7 @@ def main(opts):
             callbacks=callbacks
                       + [
                           WandbLogger(opts, opts.proj_name, opts.run_name, sweep_mode=opts.sweep_mode),
-                          res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10),
+                          res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=opts.log_every),
                           PrintValidationEventsForAddition(n_epochs=opts.n_epochs),
                       ],
         )
@@ -415,12 +415,13 @@ def main(opts):
             callbacks=callbacks
                       + [
                           WandbLogger(opts, opts.proj_name, opts.run_name),
-                          res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=10),
+                          res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=opts.log_every),
                       ],
         )
 
     # and finally we train!
     trainer.train(n_epochs=opts.n_epochs)
+    print(res.acc)
     return res.acc, res.val_loss
     # trainer.eval()
 
