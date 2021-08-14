@@ -68,6 +68,12 @@ def get_params(params):
         help="Number of summands to add",
     )
     parser.add_argument(
+        "--save_to",
+        type=str,
+        default=None,
+        help="If printing validation data, whether to save it in a file.",
+    )
+    parser.add_argument(
         "--validation_batch_size",
         type=int,
         default=0,
@@ -403,7 +409,7 @@ def main(opts):
                       + [
                           WandbLogger(opts, opts.proj_name, opts.run_name, sweep_mode=opts.sweep_mode),
                           res if opts.ax_hp else core.ConsoleLogger(print_train_loss=True, as_json=True, every_x=opts.log_every),
-                          PrintValidationEventsForAddition(n_epochs=opts.n_epochs),
+                          PrintValidationEventsForAddition(n_epochs=opts.n_epochs,save_to=opts.save_to),
                       ],
         )
     else:
