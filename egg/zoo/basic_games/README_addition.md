@@ -25,7 +25,7 @@ Most of the parameters are taken from [the basic game setup](play.py). New relev
  - `save_to` In conjunction with `--print_validation_events` 
  will save the validation events to this file
  - `ax_hp` a json file outlining the hyper-parameters optimisation to carry out. 
- See e.g. [this file](exp1.5.json).
+ See e.g. [this file](ex1.5-ax.json).
  - `log_every` reduces the verbosity of the console logger to every this parameter runs.
  - `n_max` 1 + the highest summand appearing in training/eval data. If the highest appearing 
  summand is 9, `n_max` should be 10.
