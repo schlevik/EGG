@@ -15,10 +15,13 @@ def to_numbers(array: List[int]) -> Tuple[int, int]:
 
 
 class PrintValidationEventsForAddition(Callback):
+    """
+    Adopted from core/language_analysis.py
+    """
     def __init__(self, n_epochs, save_to=None):
         super().__init__()
-        self.n_epochs = n_epochs
-        self.save_to = save_to
+        self.n_epochs = n_epochs # how often to print save
+        self.save_to = save_to # where to save
 
     @staticmethod
     def print_events(logs: Interaction, save_to=None):
@@ -31,6 +34,8 @@ class PrintValidationEventsForAddition(Callback):
         correct = [bool(p == l) for p, l in zip(predicted_output, labels)]
         headers = ['input', 'label', 'message', "output", "correct"]
         data = list(zip(input_pairs, labels, messages, predicted_output, correct))
+
+        # nicer printing of the outputs
         print(tabulate.tabulate(data, headers=headers))
         if save_to:
             dicted_data = [{k: v for k, v in zip(headers, d)} for d in data]
@@ -49,6 +54,7 @@ class PrintValidationEventsForAddition(Callback):
 
 
 class StoreEvaluationScoreCallback(Callback):
+    # this is just something to keep the results of the evaluation
     def __init__(self, n_epochs):
         super().__init__()
         self.n_epochs = n_epochs

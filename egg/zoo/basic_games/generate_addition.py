@@ -7,8 +7,6 @@ from egg import core
 
 def get_params(params):
     parser = argparse.ArgumentParser()
-    # arguments controlling the game type
-    # arguments concerning the input data and how they are processed
     parser.add_argument(
         "--out", type=str, default=None, help="Path to the train data"
     )
@@ -41,14 +39,19 @@ def main(params):
     opts = get_params(params)
     random.seed(opts.seed)
     print(opts, flush=True)
+    # generate exhaustively all possibilities for max_summand
     full = {(x, y) for x in range(opts.max_summand) for y in range(opts.max_summand)}
     if opts.size:
+        # subsample to size if required
         full = set(random.sample(full, opts.size))
     if opts.unseen_ratio:
+        # if requested, split train/val according to ratio
         to_remove = round(len(full) * opts.unseen_ratio)
         eval_set = random.sample(full, to_remove)
         train_set = full.difference(eval_set)
         final_eval_set = []
+
+        # remove val examples (x,y) where either x, y, or x+y are not in train set
         for x, y in eval_set:
             x_seen = any(x == _x for _x, _y in train_set) if opts.positional else \
                 any(x == _x or x == _y for _x, _y in train_set)
@@ -62,6 +65,8 @@ def main(params):
                 print(f"Discarding {(x, y)}: sum seen: {sum_seen}, x seen: {x_seen}, y seen: {y_seen}")
 
         print(len(final_eval_set), "eval examples.")
+
+        # just a sanity check
         for t in final_eval_set:
             assert t not in train_set
         with open(f'{opts.out}-eval-l{len(eval_set)}-r{opts.unseen_ratio}-s{opts.seed}.txt', 'w+') as f:
