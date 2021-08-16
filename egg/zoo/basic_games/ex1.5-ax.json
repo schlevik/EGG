@@ -1,0 +1,53 @@
+{
+  "num_runs": 100,
+  "hyper_params": [
+    {
+      "name": "sender_embedding",
+      "type": "range",
+      "bounds": [
+        5,
+        150
+      ],
+      "value_type": "int",
+      "log_scale": false
+    },
+    {
+      "name": "receiver_embedding",
+      "type": "range",
+      "bounds": [
+        5,
+        100
+      ],
+      "value_type": "int",
+      "log_scale": false
+    },
+    {
+      "name": "sender_hidden",
+      "type": "range",
+      "bounds": [
+        300,
+        600
+      ],
+      "value_type": "int",
+      "log_scale": false
+    },
+    {
+      "name": "receiver_hidden",
+      "type": "range",
+      "bounds": [
+        300,
+        600
+      ],
+      "value_type": "int",
+      "log_scale": false
+    },
+    {
+      "name": "max_len",
+      "type": "range",
+      "bounds": [
+        2,
+        5
+      ]
+    }
+  ]
+}
